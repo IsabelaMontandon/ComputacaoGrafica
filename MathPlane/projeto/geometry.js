@@ -77,14 +77,19 @@
     constructor() { this.vertices=[]; this.parts=[]; }
     add(mesh, position, scale, hex, rotation=[0,0,0], name=mesh) {
       const color=[1,3,5].map(i => parseInt(hex.slice(i,i+2),16)/255);
-      const first = this.vertices.length / 6;
-      for (const vertex of meshes[mesh]) {
-        this.vertices.push(...vertex.p,...color.map(v => v*vertex.tone));
+      const first = this.vertices.length / 9;
+      const meshVertices=meshes[mesh];
+      for(let i=0;i<meshVertices.length;i+=3){
+        const [a,b,c]=meshVertices.slice(i,i+3).map(v=>v.p);
+        const u=b.map((v,k)=>v-a[k]),w=c.map((v,k)=>v-a[k]);
+        let n=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+        const length=Math.hypot(...n);n=length>1e-9?n.map(v=>v/length):[0,1,0];
+        for(const vertex of meshVertices.slice(i,i+3)) this.vertices.push(...vertex.p,...color,...n);
       }
       // A geometria permanece local. A matriz de cada peça é aplicada no shader.
       const matrix = M4.compose(position, rotation, scale);
       this.parts.push({name,mesh,position,scale,rotation,matrix,first,
-        count: this.vertices.length / 6 - first});
+        normalMatrix:M4.normalMatrix(position,rotation,scale),count: this.vertices.length / 9 - first});
     }
   }
   const api={meshes,lathe,transform,Model};
