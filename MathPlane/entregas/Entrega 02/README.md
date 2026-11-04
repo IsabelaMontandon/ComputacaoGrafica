@@ -1,6 +1,6 @@
 # Math Plane
 
-**Atividade 2 — Modelagem 3D e construção inicial da cena**
+**Atividade 2 - Modelagem 3D e construção inicial da cena**
 
 Computação Gráfica
 
