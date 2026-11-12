@@ -520,10 +520,6 @@
 
     gl.enable(gl.DEPTH_TEST);
 
-    // Texturas incorporadas em texturas.js
-
-    const textureImages = TEXTURE_IMAGES;
-
     async function loadTexture(file) {
       const image = await new Promise((resolve, reject) => {
         const img = new Image();
@@ -534,7 +530,7 @@
           reject(new Error("Não foi possível carregar " + file + "."));
         };
 
-        img.src = textureImages[file];
+        img.src = "texturas/" + file;
       });
 
       const texture = gl.createTexture();
@@ -610,7 +606,6 @@
     const textureEntries = [
       ["fuselagem", "fuselagem-creme.png"],
       ["chão", "grama.png"],
-      ["nuvem", "nuvem.png"],
       ["montanha", "rocha.png"],
       ["tronco", "casca.png"],
       ["copa", "folhagem.png"],
