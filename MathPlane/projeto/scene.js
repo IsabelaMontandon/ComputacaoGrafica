@@ -447,6 +447,27 @@
       [0, 1]
     ].map(([u, v]) => cloudVertex(u, v));
 
+    // Nuvens com textura transparente.
+
+const cloudPositions = [
+  [-15, 10, -31, 7],
+  [0, 13, -35, 9],
+  [12, 10, -32, 6],
+  [27, 13, -38, 8],
+  [40, 10, -34, 7]
+];
+
+for (const [x, y, z, width] of cloudPositions) {
+  scene.add(
+    "cloudPlane",
+    [x, y, z],
+    [width, width * 0.41, 1],
+    "#ffffff",
+    [0, 0, 0],
+    "nuvem"
+  );
+}
+    
     // Lente do farol
 
     const lampPosition = [2.56, 0, 0];
@@ -610,6 +631,7 @@
       ["tronco", "casca.png"],
       ["copa", "folhagem.png"],
       ["balão liso", "balao-sem-numero.png"],
+      ["nuvem", "nuvem.png"],
 
       ...Array.from(
         { length: 9 },
