@@ -991,11 +991,10 @@ for (const [x, y, z, width] of cloudPositions) {
 
       previous = now;
 
-      const climb =
-        Number(keys.has("ArrowUp"))
-        - Number(keys.has("ArrowDown"));
-
-      // O movimento e a hélice serão habilitados na etapa 2.
+      // Animação visual da hélice. O avião continua parado.
+      propellerAngle = (
+        propellerAngle + dt * 2.6 * 2 * Math.PI
+      ) % (2 * Math.PI);
 
       draw();
 
@@ -1025,6 +1024,7 @@ for (const [x, y, z, width] of cloudPositions) {
       if (key === "r") {
         travel = 0;
         altitude = 0;
+        propellerAngle = 0;
 
         keys.clear();
 

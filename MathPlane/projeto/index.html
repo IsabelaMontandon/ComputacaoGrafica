@@ -8,9 +8,28 @@
 </head>
 <body>
     <canvas id="scene" aria-label="Avião em voo diante de dezesseis balões amarelos"></canvas>
-    <header>
-        <strong>Math Plane</strong>
-        <p><b>R</b> Reiniciar · <b>N</b> Dia/noite · <b>1</b> Vista lateral · <b>2</b> Vista diagonal</p>
+    <header class="hud">
+        <div class="challenge" aria-label="Desafio 1 de 10">
+            <span>SOMA</span>
+            <strong>1 / 10</strong>
+        </div>
+
+        <div class="title-panel">
+            <strong>Math Plane</strong>
+            <p><b>R</b> Reiniciar · <b>N</b> Dia/noite · <b>1</b> Vista lateral · <b>2</b> Vista diagonal</p>
+        </div>
+
+        <!-- Valores fixos: as regras matemáticas entram na Entrega 05. -->
+        <div class="scores" aria-label="Atual 0 e meta 15">
+            <div class="score current">
+                <span>ATUAL</span>
+                <strong>0</strong>
+            </div>
+            <div class="score target">
+                <span>META</span>
+                <strong>15</strong>
+            </div>
+        </div>
     </header>
     <p id="error" role="alert" hidden></p>
     <script src="m4.js"></script>
