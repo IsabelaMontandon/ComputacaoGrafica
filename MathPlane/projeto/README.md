@@ -15,6 +15,8 @@ Esta pasta reúne o código do Math Plane, projeto de Computação Gráfica dese
 
 ## Como executar
 
-Abra [`index.html`](index.html) no navegador, mantendo os arquivos na mesma pasta. Não é necessário instalar dependências. O navegador precisa oferecer suporte a WebGL.
+Abra [`index.html`](index.html) pelo Live Server do VS Code ou por outro servidor HTTP, mantendo a pasta `texturas` junto aos arquivos-fonte. O navegador precisa oferecer suporte a WebGL. A página publicada no GitHub Pages também pode ser usada.
+
+Esta versão da Entrega 05 inclui somente soma. A tela inicial apresenta Jogar, instruções e regras das estrelas. Use **↑/↓** para subir e descer, **→** para avançar, **1/2** para as câmeras e **R** para reiniciar. O botão **Pausar** permite continuar, reiniciar ou voltar à tela inicial.
 
 Para acompanhar o que foi implementado em cada etapa, consulte a pasta [entregas](../entregas/).

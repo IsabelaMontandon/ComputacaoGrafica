@@ -765,7 +765,7 @@ for (const [x, y, z, width] of cloudPositions) {
 
       const visibleColumns = night
         ? columns
-            .filter(column => column.x > lampPosition[0])
+            .filter(column => !column.empty && column.x > lampPosition[0] - 0.65)
             .sort((a, b) => a.x - b.x)
             .slice(0, 2)
         : [];
@@ -786,6 +786,7 @@ for (const [x, y, z, width] of cloudPositions) {
       for (const part of scene.parts) {
         const item = balloonParts.get(part);
         const aircraft = aircraftParts.has(part);
+        if (item && item.column.empty) continue;
         const [x, y, z] = part.position;
 
         const wrap = (offset, period, min) => (
@@ -834,7 +835,7 @@ for (const [x, y, z, width] of cloudPositions) {
 
         if (texturedBalloon) {
           textureKey = showNumber
-            ? "balão " + item.column.numbers[item.row]
+            ? (item.column.numbers[item.row] === 0 ? "balão liso" : "balão " + item.column.numbers[item.row])
             : "balão liso";
         }
 
@@ -963,22 +964,298 @@ for (const [x, y, z, width] of cloudPositions) {
       }
     }
 
-    // Deslocamento das colunas
-    // Preparado para as próximas etapas.
+    // Estado da partida: a cena e suas malhas continuam sendo as da Entrega 04.
+    const hud = document.querySelector(".hud");
+    const menu = document.querySelector("#menu");
+    const playButton = document.querySelector("#play");
+    const menuTitle = document.querySelector("#menu-title");
+    const menuText = document.querySelector("#menu-text");
+    const message = document.querySelector("#message");
+    const pauseButton = document.querySelector("#pause-button");
+    const pauseMenu = document.querySelector("#pause-menu");
+    const resumeButton = document.querySelector("#resume-button");
+    const restartButton = document.querySelector("#restart-button");
+    const homeButton = document.querySelector("#home-button");
+    const initialMenuText = menuText.textContent;
+    const targets = [15, 12, 18, 16, 20, 14, 21, 17, 23, 25];
+    const resultHome = document.querySelector("#result-home");
+    const menuInstructions = document.querySelector("#menu-instructions");
+    function setChallengeStart() { current = 0; }
+    let state = "menu";
+    let challenge = 0;
+    let current = 0;
+    let lives = 3;
+    let elapsed = 0;
+    // Raio varrido pela hélice (altura 1,94 / 2) + semialtura do balão.
+    // 0,97 + 0,76 = 1,73 > metade da distância entre linhas (1,15).
+    const propellerX = 2.37;
+    const contactHeight = 1.94 / 2 + 0.76;
+    let noticeTime = 0;
 
-    function updateColumns(distance) {
+    function updateHUD() {
+      document.querySelector("#operation-label").textContent = "SOMA";
+      document.querySelector("#challenge-value").textContent = `${challenge + 1} / 10`;
+      document.querySelector(".challenge").setAttribute("aria-label", `Desafio ${challenge + 1} de 10`);
+      document.querySelector("#current-value").textContent = current;
+      document.querySelector("#target-value").textContent = targets[challenge];
+      document.querySelector("#lives-value").textContent = "♥".repeat(lives) + "♡".repeat(3 - lives);
+      document.querySelector("#lives-value").setAttribute("aria-label", `${lives} vidas restantes`);
+      document.querySelector("#stars-value").textContent = "★".repeat(starCount()) + "☆".repeat(3 - starCount());
+      document.querySelector("#stars-value").setAttribute("aria-label", `${starCount()} estrelas`);
+      document.querySelector("#time-value").textContent = formatTime(elapsed);
+      document.querySelector(".scores").setAttribute("aria-label", `Atual ${current} e meta ${targets[challenge]}`);
+    }
+
+    function notify(text) {
+      message.textContent = text;
+      message.hidden = false;
+      noticeTime = 4;
+    }
+
+    // Toda coluna tem exatamente um balão vazio e uma opção de progresso.
+    function fillColumn(column) {
+      column.empty = false;
+      const maximum = 9;
+      column.numbers = heights.map(() => 1 + Math.floor(Math.random() * maximum));
+      const passRow = Math.floor(Math.random() * heights.length);
+      column.numbers[passRow] = 0;
+      // Zero representa o balão vazio; o valor não é aplicado à operação.
+      // A opção de progresso ocupa outra linha e nunca apaga o vazio.
+      const safeRow = (passRow + 1 + Math.floor(Math.random() * (heights.length - 1))) % heights.length;
+      const safe = Array.from({ length: Math.min(9, targets[challenge] - current) }, (_, i) => i + 1);
+      column.numbers[safeRow] = safe[Math.floor(Math.random() * safe.length)] || 1;
+    }
+
+    function resetColumns(blankCount = 0) {
+      columns.forEach((column, i) => {
+        column.x = 6 + i * 3.5;
+        fillColumn(column);
+        column.empty = i < blankCount;
+      });
+    }
+
+    function formatTime(seconds) {
+      const total = Math.floor(seconds);
+      return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+    }
+
+    // Uma vida perdida limita o resultado a duas estrelas; duas, a uma.
+    // O tempo também limita o resultado; acima de 3:00 não há estrelas.
+    function starCount() {
+      const byTime = elapsed <= 120 ? 3 : elapsed <= 150 ? 2 : elapsed <= 180 ? 1 : 0;
+      return Math.max(0, Math.min(lives, byTime));
+    }
+
+    function finish(won) {
+      state = won ? "won" : "lost";
+      menuInstructions.hidden = true;
+      playButton.hidden = false;
+      resultHome.hidden = false;
+      pauseButton.disabled = true;
+      keys.clear();
+      menuTitle.textContent = won ? "Parabéns, piloto!" : "Suas vidas acabaram!";
+      const stars = starCount();
+      menuText.textContent = "";
+      const earnedStars = document.createElement("div");
+      earnedStars.className = "result-stars";
+      earnedStars.textContent = "★".repeat(stars);
+      earnedStars.setAttribute("aria-label", `${stars} estrelas conquistadas`);
+      const details = document.createElement("div");
+      details.className = "result-details";
+      details.textContent = `Vidas restantes: ${lives}\nTempo: ${formatTime(elapsed)}`;
+      menuText.append(earnedStars, details);
+      playButton.textContent = "Jogar novamente";
+      menu.hidden = false;
+      message.hidden = true;
+      noticeTime = 0;
+      playButton.focus();
+    }
+
+    function startGame() {
+      state = "playing";
+      pauseMenu.hidden = true;
+      pauseButton.disabled = false;
+      challenge = 0;
+      setChallengeStart();
+      lives = 3;
+      elapsed = 0;
+      travel = 0;
+      altitude = 0;
+      propellerAngle = 0;
+      camera = 0;
+      night = false;
+      sun = true;
+      lamp = false;
+      keys.clear();
+      resetColumns();
+      updateHUD();
+      menu.hidden = true;
+      hud.hidden = false;
+      notify("Escolha um balão com ↑ e ↓. Segure → para avançar.");
+    }
+
+    function collect(column, row) {
+      const value = column.numbers[row];
+      if (value === 0) {
+        // Passagem neutra: consome a coluna sem alterar a conta nem as vidas.
+        column.x = Math.max(...columns.map(other => other.x)) + 3.5;
+        fillColumn(column);
+        updateHUD();
+        return;
+      }
+      current += value;
+      if (current > targets[challenge]) {
+        lives--;
+        if (lives === 0) {
+          updateHUD();
+          finish(false);
+          return;
+        }
+        setChallengeStart();
+        resetColumns();
+        notify(`Você ultrapassou a meta. Restam ${lives} vidas. Tente de novo a partir de ${current}.`);
+        updateHUD();
+        return;
+      }
+      if (current === targets[challenge]) {
+        if (challenge === targets.length - 1) {
+          updateHUD();
+          finish(true);
+          return;
+        }
+        challenge++;
+        setChallengeStart();
+        if (challenge === 5) {
+          night = true;
+          sun = false;
+          lamp = true;
+          resetColumns(2);
+          notify("Anoiteceu! Pressione 2 para a vista diagonal.");
+        } else {
+          resetColumns();
+          notify(`Conta concluída! Nova meta: ${targets[challenge]}.`);
+        }
+      } else {
+        // A coluna inteira desaparece, e uma nova é colocada ao final da fila.
+        column.x = Math.max(...columns.map(other => other.x)) + 3.5;
+        fillColumn(column);
+
+      }
+      updateHUD();
+    }
+
+    function noseContact(oldX, newX, oldY, newY, balloonY) {
+      // Bico em x=2,56; margens de 0,06 sobre os raios reais do balão.
+      const x = (oldX - 2.56) / 0.63;
+      const y = (balloonY - oldY) / 0.82;
+      const dx = (newX - oldX) / 0.63;
+      const dy = (oldY - newY) / 0.82;
+      const c = x * x + y * y - 1;
+      if (c <= 0) return 0;
+      const a = dx * dx + dy * dy;
+      if (a < 1e-12) return null;
+      const b = 2 * (x * dx + y * dy);
+      const discriminant = b * b - 4 * a * c;
+      if (discriminant < 0) return null;
+      const t = (-b - Math.sqrt(discriminant)) / (2 * a);
+      return t >= 0 && t <= 1 ? t : null;
+    }
+
+    function updateGame(dt) {
+      // A pausa das duas colunas vazias não penaliza o tempo das estrelas.
+      if (!columns.some(column => column.empty)) elapsed += dt;
+      updateHUD();
+      // Movimento livre enquanto as setas estiverem pressionadas.
+      const previousAltitude = altitude;
+      const vertical = Number(keys.has("ArrowUp")) - Number(keys.has("ArrowDown"));
+      altitude = Math.max(heights[0], Math.min(heights[heights.length - 1], altitude + vertical * dt * 4));
+      const distance = keys.has("ArrowRight") ? dt * 3.2 : 0;
       travel += distance;
-
-      for (const column of columns) {
-        column.x -= distance;
-
-        if (column.x < -4) {
-          column.x =
-            Math.max(...columns.map(other => other.x))
-            + 3.5;
+      const ordered = [...columns].sort((a, b) => a.x - b.x);
+      for (const column of columns) column.x -= distance;
+      for (const column of ordered) {
+        if (column.empty) {
+          if (column.x < propellerX - 0.8) {
+            column.x = Math.max(...columns.map(other => other.x)) + 3.5;
+            fillColumn(column);
+          }
+          continue;
+        }
+        const previousX = column.x + distance;
+        // Primeiro verifica o bico contra a superfície oval dos balões.
+        // O segmento do quadro evita atravessar a superfície sem detectar o toque.
+        let noseRow = -1;
+        let firstContact = Infinity;
+        for (let row = 0; row < heights.length; row++) {
+          const hit = noseContact(previousX, column.x, previousAltitude, altitude, heights[row]);
+          if (hit !== null && hit < firstContact) {
+            noseRow = row;
+            firstContact = hit;
+          }
+        }
+        if (noseRow !== -1) {
+          collect(column, noseRow);
+          return;
+        }
+        // Só usa a hélice se nenhum balão foi tocado pelo bico.
+        // Aguarda a coluna chegar à hélice para não antecipar essa escolha.
+        if (previousX >= propellerX && column.x <= propellerX && distance > 0) {
+          const t = (previousX - propellerX) / distance;
+          const contactAltitude = previousAltitude + (altitude - previousAltitude) * t;
+          let row = 0;
+          for (let i = 1; i < heights.length; i++) {
+            if (Math.abs(heights[i] - contactAltitude) < Math.abs(heights[row] - contactAltitude)) row = i;
+          }
+          if (Math.abs(heights[row] - contactAltitude) <= contactHeight) {
+            collect(column, row);
+            return;
+          }
         }
       }
     }
+
+    function pauseGame() {
+      if (state !== "playing") return;
+      state = "paused";
+      keys.clear();
+      pauseMenu.hidden = false;
+      resumeButton.focus();
+    }
+
+    function resumeGame() {
+      if (state !== "paused") return;
+      keys.clear();
+      state = "playing";
+      pauseMenu.hidden = true;
+      pauseButton.focus();
+    }
+
+    function returnHome() {
+      // Restaura a cena e descarta a tentativa atual antes de exibir o início.
+      startGame();
+      state = "menu";
+      keys.clear();
+      pauseButton.disabled = true;
+      pauseMenu.hidden = true;
+      hud.hidden = true;
+      message.hidden = true;
+      noticeTime = 0;
+      menuTitle.textContent = "Math Plane";
+      menuText.textContent = initialMenuText;
+      playButton.textContent = "Jogar";
+      playButton.hidden = false;
+      resultHome.hidden = true;
+      menuInstructions.hidden = false;
+      menu.hidden = false;
+      playButton.focus();
+    }
+
+    resultHome.addEventListener("click", returnHome);
+    playButton.addEventListener("click", startGame);
+    pauseButton.addEventListener("click", pauseGame);
+    resumeButton.addEventListener("click", resumeGame);
+    restartButton.addEventListener("click", startGame);
+    homeButton.addEventListener("click", returnHome);
 
     // Atualização por quadro
 
@@ -991,10 +1268,17 @@ for (const [x, y, z, width] of cloudPositions) {
 
       previous = now;
 
-      // Animação visual da hélice. O avião continua parado.
-      propellerAngle = (
-        propellerAngle + dt * 2.6 * 2 * Math.PI
-      ) % (2 * Math.PI);
+      if (state === "playing") updateGame(dt);
+      if (state === "playing" && noticeTime > 0) {
+        noticeTime -= dt;
+        if (noticeTime <= 0) message.hidden = true;
+      }
+      // A hélice gira; o deslocamento do cenário produz a sensação de avanço.
+      if (state === "playing") {
+        propellerAngle = (
+          propellerAngle + dt * 2.6 * 2 * Math.PI
+        ) % (2 * Math.PI);
+      }
 
       draw();
 
@@ -1010,6 +1294,7 @@ for (const [x, y, z, width] of cloudPositions) {
 
       if (movementKeys.has(event.key)) {
         event.preventDefault();
+        if (state !== "playing") return;
         keys.add(event.key);
 
         return;
@@ -1021,30 +1306,16 @@ for (const [x, y, z, width] of cloudPositions) {
 
       const key = event.key.toLowerCase();
 
-      if (key === "r") {
-        travel = 0;
-        altitude = 0;
-        propellerAngle = 0;
+      if (state === "paused") return;
 
-        keys.clear();
-
-        columns.forEach((column, i) => {
-          column.x = 6 + i * 3.5;
-
-          column.numbers = initialNumbers.slice(
-            i * 4,
-            i * 4 + 4
-          );
-        });
+      if (key === "r" && state !== "menu") {
+        startGame();
       } else if (key === "1") {
         camera = 0;
       } else if (key === "2") {
         camera = 1;
-      } else if (key === "n") {
-        night = !night;
-        sun = !night;
-        lamp = night;
       }
+      // Dia/noite é definido pelo progresso. A tecla N não altera a partida.
     });
 
     window.addEventListener("keyup", event => {
@@ -1063,6 +1334,8 @@ for (const [x, y, z, width] of cloudPositions) {
       fail("Contexto gráfico interrompido. Recarregue a página.");
     });
 
+    playButton.textContent = "Jogar";
+    playButton.disabled = false;
     // Início da execução
 
     draw();
