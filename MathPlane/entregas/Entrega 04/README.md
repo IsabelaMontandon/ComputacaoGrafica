@@ -39,8 +39,6 @@ Nesta entrega, o avião permanece parado e os valores do painel são fixos. A mo
 
 ## Como testar
 
-[Demonstração online](https://isabelamontandon.github.io/ComputacaoGrafica/MathPlane/projeto/)
-
 Para execução local, o arquivo [`index.html`](../../projeto/index.html) pode ser aberto pelo Live Server do VS Code ou por outro servidor HTTP, mantendo os arquivos e a pasta `texturas` na estrutura original.
 
 | Tecla | Função |
@@ -53,6 +51,10 @@ Para execução local, o arquivo [`index.html`](../../projeto/index.html) pode s
 O código-fonte atualizado está na pasta [`MathPlane/projeto`](../../projeto/).
 
 ## Demonstração
+
+[Assistir ao vídeo da Entrega 04 no YouTube](https://www.youtube.com/watch?v=f1vTRrRIacI)
+
+O vídeo registra a versão apresentada na Entrega 04 e preserva a evolução do projeto, já que o código-fonte e a versão publicada no GitHub Pages continuam recebendo atualizações.
 
 As capturas mostram as texturas nas duas câmeras e sua interação com a iluminação nos modos dia e noite.
 
