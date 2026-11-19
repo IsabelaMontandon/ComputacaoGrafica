@@ -1,0 +1,117 @@
+/* Malhas locais geradas por código. Nenhum arquivo de modelo externo. */
+
+(function (root) {
+  'use strict';
+  const M4 = typeof module!=='undefined'&&module.exports ? require('./m4.js') : root.M4;
+
+  function box() {
+    const vertices = [];
+    const faces = [
+      [[0,0,1],[1,0,1],[1,1,1],[0,1,1]],
+      [[1,0,0],[0,0,0],[0,1,0],[1,1,0]],
+      [[1,0,1],[1,0,0],[1,1,0],[1,1,1]],
+      [[0,0,0],[0,0,1],[0,1,1],[0,1,0]],
+      [[0,1,1],[1,1,1],[1,1,0],[0,1,0]],
+      [[0,0,0],[1,0,0],[1,0,1],[0,0,1]]
+    ];
+
+    // Tons constantes por face: são cores do material, não fontes de luz.
+    const tones = [0.94, 0.90, 0.96, 0.92, 1.0, 0.87];
+    faces.forEach((face, i) => {
+      for (const v of [face[0],face[1],face[2],face[0],face[2],face[3]]) {
+        vertices.push({p:v.map(n => n - 0.5), tone:tones[i]});
+      }
+    });
+    return vertices;
+  }
+
+  // Revolução em torno do eixo X. Cada par é [posição no eixo, raio].
+  function lathe(profile, segments = 12) {
+    const vertices = [];
+    const tones = [1.0, 0.98, 0.95, 0.91, 0.89, 0.91, 0.95, 0.98];
+    for (let k = 0; k < profile.length - 1; k++) {
+      for (let j = 0; j < segments; j++) {
+        const a = j * Math.PI * 2 / segments;
+        const b = (j + 1) * Math.PI * 2 / segments;
+        const point = (i,t) => [profile[i][0], Math.cos(t)*profile[i][1], Math.sin(t)*profile[i][1]];
+        const tone = tones[j % tones.length];
+        // U acompanha o comprimento; V percorre a volta sem saltar na emenda.
+        const uv = (i,j) => [(profile[i][0]-profile[0][0])/(profile.at(-1)[0]-profile[0][0]),j/segments];
+        const corners = [[k,j],[k+1,j+1],[k+1,j],[k,j],[k,j+1],[k+1,j+1]];
+        let index=0;
+        for (const p of [point(k,a),point(k+1,b),point(k+1,a),point(k,a),point(k,b),point(k+1,b)]) {
+          vertices.push({p,tone,uv:uv(...corners[index++])});
+        }
+      }
+    }
+    return vertices;
+  }
+
+  function sphere(rows = 6, columns = 10) {
+    const vertices = [];
+    const point = (u,v) => [Math.sin(u)*Math.cos(v), Math.cos(u), Math.sin(u)*Math.sin(v)];
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < columns; j++) {
+        const a=i*Math.PI/rows, b=(i+1)*Math.PI/rows;
+        const c=j*Math.PI*2/columns, d=(j+1)*Math.PI*2/columns;
+        const tone=[1.0,0.96,0.91,0.95][j%4];
+        const uvs=[[j/columns,1-i/rows],[(j+1)/columns,1-(i+1)/rows],[j/columns,1-(i+1)/rows],
+          [j/columns,1-i/rows],[(j+1)/columns,1-i/rows],[(j+1)/columns,1-(i+1)/rows]];
+        [point(a,c),point(b,d),point(b,c),point(a,c),point(a,d),point(b,d)].forEach(
+          (p,k)=>vertices.push({p,tone,uv:uvs[k]}));
+      }
+    }
+    return vertices;
+  }
+
+  const meshes = {
+    box: box(),
+    cylinder: lathe([[-.5,0],[-.5,.5],[.5,.5],[.5,0]],12),
+    sphere: sphere(),
+    // Perfil afilado da cauda ao nariz, compatível com o avião de referência.
+    fuselage: lathe([[-2.8,0],[-2.55,.21],[-1.4,.39],[.8,.52],[1.9,.39],[2.1,.25],[2.12,0]],10)
+  };
+
+  function transform(p, position, scale, rotation) {
+    let [x,y,z] = p.map((v,i) => v*scale[i]);
+    let c=Math.cos(rotation[0]),s=Math.sin(rotation[0]);
+    [y,z]=[y*c-z*s,y*s+z*c];
+    c=Math.cos(rotation[1]);s=Math.sin(rotation[1]);
+    [x,z]=[x*c+z*s,-x*s+z*c];
+    c=Math.cos(rotation[2]);s=Math.sin(rotation[2]);
+    [x,y]=[x*c-y*s,x*s+y*c];
+    return [x+position[0],y+position[1],z+position[2]];
+  }
+
+  class Model {
+    constructor() { this.vertices=[]; this.parts=[]; }
+    add(mesh, position, scale, hex, rotation=[0,0,0], name=mesh) {
+      const color=[1,3,5].map(i => parseInt(hex.slice(i,i+2),16)/255);
+      const first = this.vertices.length / 11;
+      const meshVertices=meshes[mesh];
+      for(let i=0;i<meshVertices.length;i+=3){
+        const [a,b,c]=meshVertices.slice(i,i+3).map(v=>v.p);
+        const u=b.map((v,k)=>v-a[k]),w=c.map((v,k)=>v-a[k]);
+        let n=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+        const length=Math.hypot(...n);n=length>1e-9?n.map(v=>v/length):[0,1,0];
+        for(const vertex of meshVertices.slice(i,i+3)){
+          // Nas caixas, mapeia os dois eixos do plano de cada face.
+          // Uma repetição por 2 unidades evita esticar a imagem sobre a pista.
+          const axes = Math.abs(n[0])>.5 ? [2,1] : Math.abs(n[1])>.5 ? [0,2] : [0,1];
+          // Em troncos e cones, U contorna a malha e V acompanha a altura.
+          const landscape = ['montanha','tronco','copa'].includes(name);
+          const mapped = landscape ? [vertex.uv[1]*(name==='montanha'?3:1),vertex.uv[0]] : vertex.uv;
+          const uv = mapped || axes.map(axis => (vertex.p[axis]+.5)*scale[axis]/(name==='chão'?9:2));
+          this.vertices.push(...vertex.p,...color,...n,...uv);
+        }
+      }
+      // A geometria permanece local. A matriz de cada peça é aplicada no shader.
+      const matrix = M4.compose(position, rotation, scale);
+      this.parts.push({name,mesh,position,scale,rotation,matrix,first,
+        normalMatrix:M4.normalMatrix(position,rotation,scale),count: this.vertices.length / 11 - first});
+    }
+  }
+  const api={meshes,lathe,transform,Model};
+  if(typeof module!=='undefined'&&module.exports) module.exports=api;
+  else root.Geometry=api;
+})(typeof window!=='undefined'?window:globalThis);
